@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Guardian - Power Theft Detection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        :root {
+            --bg-color: #f0f4f8;
+            --navbar-bg: rgba(240, 244, 248, 0.5);
+            --text-color: #1a202c;
+            --text-color-muted: #4a5568;
+            --card-bg: rgba(255, 255, 255, 0.5);
+            --card-border: rgba(0, 0, 0, 0.08);
+            --footer-bg: #e3e8ee;
+            --footer-text: #4a5568;
+            --footer-heading-color: #1a202c;
+            --primary-color: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --safe-color: #10b981;
+            --danger-color: #ef4444;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --bg-color: #0d1117;
+            --navbar-bg: rgba(22, 27, 34, 0.5);
+            --text-color: #e6edf3;
+            --text-color-muted: #7d8590;
+            --card-bg: rgba(22, 27, 34, 0.5);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --footer-bg: #010409;
+            --footer-text: #7d8590;
+            --footer-heading-color: #e6edf3;
+            --primary-color: #58a6ff;
+            --primary-glow: rgba(88, 166, 255, 0.5);
+            --safe-color: #34d399;
+            --danger-color: #f87171;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+        }
+
+        html { 
+            scroll-behavior: smooth;
+            scroll-padding-top: 6rem;
+        }
+
+        body {
+            display: flex; flex-direction: column; min-height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.5s ease, color 0.5s ease;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                radial-gradient(circle at 10% 20%, hsl(210, 80%, 70%, 0.3), transparent 30%),
+                radial-gradient(circle at 80% 30%, hsl(280, 80%, 70%, 0.3), transparent 30%),
+                radial-gradient(circle at 90% 80%, hsl(190, 80%, 70%, 0.3), transparent 30%);
+            filter: blur(80px); z-index: -1;
+            animation: background-pan 30s linear infinite;
+        }
+        
+        @keyframes background-pan {
+            0% { background-position: 0% 0%; } 25% { background-position: 20% 40%; } 50% { background-position: 100% 100%; } 75% { background-position: 40% 20%; } 100% { background-position: 0% 0%; }
+        }
+
+        .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+        
+        /* Header Elements */
+        .header-logo {
+            position: fixed;
+            top: 1.25rem;
+            left: 1.5rem;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-color);
+            text-decoration: none;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .header-logo svg {
+            width: 44px;
+            height: 44px;
+        }
+        .brand-name { display: none; }
+
+        .floating-nav {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+        }
+        .floating-nav-container { display: flex; align-items: center; background-color: var(--navbar-bg); border: 1px solid var(--card-border); backdrop-filter: blur(16px); padding: 0.25rem; border-radius: 9999px; box-shadow: 0 10px 25px var(--shadow-color); }
+        .nav-links-wrapper { position: relative; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-link { position: relative; cursor: pointer; font-size: 0.875rem; font-weight: 600; padding: 0.5rem 1.5rem; border-radius: 9999px; color: var(--text-color-muted); text-decoration: none; transition: color 0.3s ease; z-index: 2; }
+        .nav-link:hover { color: var(--primary-color); }
+        .nav-link.active { color: var(--primary-color); }
+        .nav-text { display: none; }
+        .nav-icon { display: inline-block; }
+        .nav-icon svg { display: block; width: 18px; height: 18px; }
+        #nav-lamp { position: absolute; top: 0; left: 0; height: 100%; background-color: rgba(120, 130, 150, 0.1); border-radius: 9999px; z-index: 1; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), width 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+        body.dark-mode #nav-lamp { background-color: rgba(88, 166, 255, 0.1); }
+        #nav-lamp::before { content: ''; position: absolute; top: -0.25rem; left: 50%; transform: translateX(-50%); width: 2rem; height: 0.25rem; background-color: var(--primary-color); border-radius: 9999px; filter: blur(4px); opacity: 0; transition: opacity 0.3s ease; }
+        .nav-link.active ~ #nav-lamp::before { opacity: 1; }
+        
+        .theme-toggle {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            z-index: 50;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            cursor: pointer;
+            background: var(--navbar-bg);
+            color: var(--text-color);
+            font-weight: 500;
+            transition: all 0.3s;
+            backdrop-filter: blur(16px);
+        }
+        .theme-toggle:hover { transform: translateY(-2px); box-shadow: 0 4px 10px var(--shadow-color); }
+        .theme-toggle:active { transform: translateY(-1px) scale(0.98); }
+
+        @media (min-width: 768px) { 
+            .nav-text { display: inline; } 
+            .nav-icon { display: none; }
+            .brand-name { display: block; }
+            .floating-nav { top: 1.5rem; bottom: auto; }
+        }
+
+        /* Main Content */
+        main { flex: 1; display: grid; place-items: center; width: 100%; }
+        .section { display: grid; place-items: center; padding: 6rem 2rem; width: 100%; }
+        #status { min-height: 100vh; }
+        .status-container {
+            text-align: center; padding: 3.5rem; border-radius: 24px;
+            background: var(--card-bg); backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px var(--shadow-color);
+            width: 100%; max-width: 550px; opacity: 0; transform: translateY(20px);
+            animation: fadeIn 0.8s 0.2s forwards ease-out;
+            position: relative; overflow: hidden;
+            border: 1px solid var(--card-border);
+        }
+        .status-container::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: conic-gradient(from 0deg at 50% 50%, var(--primary-glow) 0deg, transparent 60deg, transparent 300deg, var(--primary-glow) 360deg); animation: spin-border 5s linear infinite; z-index: -1; opacity: 0.7; }
+        @keyframes spin-border { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+        .status-message { font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
+        .status-icon-wrapper { width: 120px; height: 120px; margin: 0 auto 1.5rem; display: grid; place-items: center; }
+        .status-icon { width: 100%; height: 100%; }
+        .icon-loading .circle { animation: spin 1.5s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); transform-origin: center; } }
+        .icon-safe .circle, .icon-danger .circle, .icon-error .circle { stroke-dasharray: 150; stroke-dashoffset: 150; animation: draw-check 0.5s ease-out forwards; }
+        .icon-safe .check { stroke-dasharray: 50; stroke-dashoffset: 50; animation: draw-check 0.4s 0.3s ease-out forwards; }
+        .icon-danger .cross-1, .icon-danger .cross-2 { stroke-dasharray: 50; stroke-dashoffset: 50; animation: draw-check 0.3s 0.3s ease-out forwards; }
+        .icon-danger .cross-2 { animation-delay: 0.5s; }
+        @keyframes draw-check { to { stroke-dashoffset: 0; } }
+        .safe { color: var(--safe-color); } .danger { color: var(--danger-color); } .loading { color: var(--primary-color); }
+        .fetching-animation { font-size: 1rem; margin-top: 1.5rem; color: var(--text-color-muted); }
+        .refresh-button { margin-top: 2rem; padding: 0.9rem 2rem; background: var(--primary-color); color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .refresh-button:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 7px 25px var(--primary-glow); }
+        .refresh-button:active { transform: translateY(-1px) scale(0.98); }
+        .last-updated { margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-color-muted); }
+        
+        /* Footer */
+        .footer { background-color: var(--footer-bg); color: var(--footer-text); padding: 5rem 0 3rem; }
+        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 3rem; }
+        .footer p { line-height: 1.7; }
+        .team-members p { margin-bottom: 0.5rem; }
+        .footer-bottom { text-align: center; margin-top: 3rem; font-size: 0.9rem; border-top: 1px solid var(--card-border); padding-top: 2rem; }
+        .footer a { color: var(--footer-text); text-decoration: none; transition: color 0.3s; }
+        .footer a:hover { color: var(--primary-color); }
+        .social-link { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .social-link svg { width: 20px; height: 20px; }
+        
+        /* Collapsible Footer Section */
+        .collapsible-trigger { background: none; border: none; padding: 0; font: inherit; color: var(--footer-heading-color); cursor: pointer; width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .collapsible-icon { transition: transform 0.3s ease; }
+        .collapsible-trigger.active .collapsible-icon { transform: rotate(180deg); }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
+    </style>
+</head>
+<body>
+    <header class="page-header">
+        <div class="header-container container">
+            <a href="#status" class="header-logo" aria-label="Power Guardian Home">
+                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="electric-gradient-header" x1="50%" y1="0%" x2="50%" y2="100%">
+                            <stop offset="0%" stop-color="#58A6FF"></stop>
+                            <stop offset="100%" stop-color="#3B82F6"></stop>
+                        </linearGradient>
+                    </defs>
+                    <path d="M12 22S19 17.5 19 12V5L12 2L5 5V12C5 17.5 12 22 12 22Z" fill="currentColor" opacity="0.1"></path>
+                    <path d="M12 22S19 17.5 19 12V5L12 2L5 5V12C5 17.5 12 22 12 22Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M12 6L13 11L18 12L13 13L12 18L11 13L6 12L11 11Z" fill="url(#electric-gradient-header)" />
+                    <circle cx="12" cy="12" r="1.5" fill="rgba(255,255,255,0.8)"></circle>
+                </svg>
+                <span class="brand-name">Power Guardian</span>
+            </a>
+            <nav class="floating-nav">
+                <div class="floating-nav-container">
+                    <div class="nav-links-wrapper">
+                         <a href="#status" class="nav-link">
+                            <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
+                            <span class="nav-text">Status</span>
+                        </a>
+                        <a href="#about" class="nav-link">
+                            <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+                            <span class="nav-text">About</span>
+                        </a>
+                        <a href="#team" class="nav-link">
+                            <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                            <span class="nav-text">Team</span>
+                        </a>
+                        <div id="nav-lamp"></div>
+                    </div>
+                </div>
+            </nav>
+            <button id="theme-toggle" class="theme-toggle">🌙</button>
+        </div>
+    </header>
+
+    <main>
+        <section id="status" class="section observed-section">
+            <div class="status-container">
+                <div id="status-icon-wrapper" class="status-icon-wrapper"></div>
+                <div id="status-message" class="status-message">Loading...</div>
+                <div id="fetching" class="fetching-animation">Fetching latest status...</div>
+                <div id="last-updated" class="last-updated"></div>
+                <button id="refresh-button" class="refresh-button">Refresh Status</button>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div id="about" class="observed-section">
+                    <button class="collapsible-trigger">
+                        <h3>About Power Guardian</h3>
+                        <span class="collapsible-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </span>
+                    </button>
+                    <div class="collapsible-content">
+                        <p>An IoT-based system to detect and prevent unauthorized power usage, ensuring a stable, fair, and safe electricity distribution network.</p>
+                    </div>
+                </div>
+                <div id="team" class="observed-section">
+                     <button class="collapsible-trigger">
+                        <h3>Our Team</h3>
+                        <span class="collapsible-icon">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </span>
+                    </button>
+                    <div class="collapsible-content">
+                        <div class="team-members">
+                            <p>Bopparaju Yaswanth (22bce20211)</p>
+                            <p>Yash Naidu (22bce8038)</p>
+                            <p>Mohammed Abdul Hakeem (22bce9460)</p>
+                            <p>Marapatla Paul Jonas Jaideep (22bce9225)</p>
+                            <p><b>Guide:</b> Prof. Sabeel M Basheer</p>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3>Contact Us</h3>
+                     <p><a href="mailto:yashnnaidu@gmail.com">yashnnaidu@gmail.com</a></p>
+                     <p style="margin-top: 1rem;"><a href="https://vitap.ac.in/" target="_blank" rel="noopener noreferrer">Vellore Institute of Technology, Amaravati</a></p>
+                     <p style="margin-top: 1rem;">
+                        <a href="https://github.com/yashnaiduu" target="_blank" rel="noopener noreferrer" class="social-link">
+                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                             GitHub Profile
+                        </a>
+                     </p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                 <p>&copy; 2025 Power Guardian Project. All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- API and Status Logic ---
+            const statusIconWrapper = document.getElementById('status-icon-wrapper');
+            const statusMessage = document.getElementById('status-message');
+            const lastUpdated = document.getElementById('last-updated');
+            const refreshButton = document.getElementById('refresh-button');
+            const fetchingText = document.getElementById('fetching');
+            
+            const icons = {
+                loading: `<svg class="status-icon icon-loading loading" viewBox="0 0 50 50"><circle class="circle" cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle></svg>`,
+                safe: `<svg class="status-icon icon-safe safe" viewBox="0 0 50 50"><circle class="circle" cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="check" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M14 27l5.5 5.5L36 19"></path></svg>`,
+                danger: `<svg class="status-icon icon-danger danger" viewBox="0 0 50 50"><circle class="circle" cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle><line class="cross-1" x1="16" y1="16" x2="34" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"></line><line class="cross-2" x1="34" y1="16" x2="16" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"></line></svg>`,
+                error: `<svg class="status-icon icon-error danger" viewBox="0 0 50 50"><circle class="circle" cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle><path d="M25,15 L25,28" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path><circle cx="25" cy="34" r="2" fill="currentColor"></circle></svg>`
+            };
+
+            async function fetchPowerTheftData() {
+                statusIconWrapper.innerHTML = icons.loading;
+                statusMessage.textContent = 'Analyzing Grid...';
+                fetchingText.style.display = 'block';
+                lastUpdated.textContent = '';
+                try {
+                    const response = await fetch(`https://api.thingspeak.com/channels/314757/feeds/last.json?t=${new Date().getTime()}`);
+                    if (!response.ok) throw new Error('Network response was not ok.');
+                    const data = await response.json();
+                    setTimeout(() => {
+                        if (data && data.field1) {
+                            if (data.field1 === "0") {
+                                statusIconWrapper.innerHTML = icons.safe;
+                                statusMessage.textContent = 'All Clear';
+                            } else {
+                                statusIconWrapper.innerHTML = icons.danger;
+                                statusMessage.textContent = 'Theft Detected!';
+                            }
+                            lastUpdated.textContent = `Last updated: ${new Date(data.created_at).toLocaleString()}`;
+                        } else { throw new Error('Invalid data format'); }
+                        fetchingText.style.display = 'none';
+                    }, 1200);
+                } catch (error) {
+                    console.error('Fetch Error:', error);
+                    setTimeout(() => {
+                        statusIconWrapper.innerHTML = icons.error;
+                        statusMessage.textContent = 'Connection Error';
+                        lastUpdated.textContent = 'Could not retrieve data. Please try again.';
+                        fetchingText.style.display = 'none';
+                    }, 1200);
+                }
+            }
+            fetchPowerTheftData();
+            refreshButton.addEventListener('click', fetchPowerTheftData);
+            setInterval(fetchPowerTheftData, 30000);
+
+            // --- Theme Toggle ---
+            const themeToggle = document.getElementById('theme-toggle');
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                themeToggle.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+            });
+            themeToggle.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+
+            // --- Floating Navigation Bar Logic ---
+            const navLinks = document.querySelectorAll('.nav-link');
+            const navLamp = document.getElementById('nav-lamp');
+            const observedSections = document.querySelectorAll('.observed-section');
+
+            function updateLamp(activeLink) {
+                if (!activeLink) return;
+                const lampLeft = activeLink.offsetLeft;
+                navLamp.style.width = `${activeLink.offsetWidth}px`;
+                navLamp.style.transform = `translateX(${lampLeft}px)`;
+            }
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    updateLamp(this);
+                });
+            });
+
+            const observer = new IntersectionObserver((entries) => {
+                let intersectingEntry = null;
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        intersectingEntry = entry;
+                    }
+                });
+                
+                if (intersectingEntry) {
+                     const link = document.querySelector(`.nav-link[href="#${intersectingEntry.target.id}"]`);
+                    if(link){
+                        navLinks.forEach(l => l.classList.remove('active'));
+                        link.classList.add('active');
+                        updateLamp(link);
+                    }
+                }
+            }, { rootMargin: '-40% 0px -60% 0px' });
+            
+            observedSections.forEach(section => observer.observe(section));
+            
+            window.addEventListener('resize', () => {
+                const activeLink = document.querySelector('.nav-link.active');
+                updateLamp(activeLink);
+            });
+            
+            setTimeout(() => {
+                const firstLink = document.querySelector('.nav-link');
+                if (firstLink) {
+                    firstLink.classList.add('active');
+                    updateLamp(firstLink);
+                }
+            }, 100);
+
+            // --- Collapsible Footer Logic ---
+            const triggers = document.querySelectorAll('.collapsible-trigger');
+            triggers.forEach(trigger => {
+                trigger.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    const content = this.nextElementSibling;
+                    if (content.style.maxHeight) {
+                        content.style.maxHeight = null;
+                    } else {
+                        content.style.maxHeight = content.scrollHeight + 'px';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
